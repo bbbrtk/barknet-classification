@@ -160,7 +160,7 @@ class Test:
         predictions = output.max(1)[1]
         predictions = predictions.cpu()
 
-        predictions = predictions.data.numpy()
+        # predictions = predictions.data.numpy()
         flat_results = predictions.tolist()
         pred = max(set(flat_results), key=flat_results.count)
         return pred

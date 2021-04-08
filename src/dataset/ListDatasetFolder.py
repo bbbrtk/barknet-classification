@@ -1,5 +1,5 @@
 from torch.utils.data.dataset import Dataset
-from PIL import Image
+from utils.img_utils import ImageOpen
 from random import choice
 
 
@@ -40,7 +40,7 @@ class ListDatasetFolder(Dataset):
         index = choice(self.classes[class_name][tree_number])
 
         path = self.dataset[index]
-        img = Image.open(path)
+        img = ImageOpen(path)
         if self.transforms:
             img = self.transforms(img)
 

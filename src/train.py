@@ -1,208 +1,78 @@
-from torch.autograd import Variable
-from torchvision.transforms import *
-import torch
+import argparse
 import os
-import json
-import math
-from PIL import Image
-import numpy as np
 
-CROP_SIZE = 224
-import time
+from dataset.generate_dataset import GenerateDataset
+from trainer.MultitaskTrainer import MultitaskTrainer
+from trainer.ClassificationTrainer import ClassificationTrainer
 
-class Test:
 
-    def __init__(self, model_name, model_path=None, log_path=None, dataset=None, multitask=True):
-        self.model_name = model_name
-        self.log_path = log_path
-        self.multitask=multitask
+def load_config(config_path):
+    config = open(config_path, 'r')
+    config_args = {}
+    for line in config:
+        if line.find(' = ') != -1:
+            name, value = line.split(' = ')
+            config_args[name] = value.strip('\n')
+    config.close()
+    return config_args
 
-        if model_path:
-            self.model_path = model_path
-        else:
-            self.model_path = model_name
 
-        self.net = None
-        self.test_file = None
+def get_dataset_generator(args):
+    dataset_gen = GenerateDataset(args['DATASET_PATH'])
+    dataset_gen.load_dataset(args['EXISTING_DATASET'], float(args['TRAIN_SPLIT']))
 
-        self.dataset = dataset
-        self.classes = []
-        self.classes.append('CHR')
-        self.classes.append('EPO')
-        self.classes.append('EPR')
-        self.classes.append('ERB')
-        self.classes.append('EPN')
+    if args['INCLUDE_IGNORE'] == 'True':
+        dataset_gen.add_ignore()
 
-        # self._load_classes()
-        self.classes.sort()
-        self._create_network()
-
-    def run(self, test_file_name):
-        # self._create_test_file(test_file_name)
-
-            # class_name = file.split('/')[-2]
-        class_name = 'CHR'
-        f = '41_CHR_83_GalaxyS5_20170607_134920_10.jpg'
-        img = Image.open(f)
-        crops = self.split_crops(img)
-        # print(crops)
-        if len(crops) > 0:
-            print('variable')
-            input = Variable(crops, volatile=True).cuda()
-            # print(self.net)
-            output = self.net(input)
-            print(output)
-
-            pred = self.get_class_predictions(output)
-
-            if self.multitask:
-                dbh = self.get_dbh_predictions(output)
-            else:
-                dbh = 0
-
-            print(class_name, f, pred, dbh)
-            # self.write_results(class_name, file, pred, dbh)
-
-    def run_single_crop(self, test_file_name, batch_size=32):
-        self._create_test_file(test_file_name)
-        batch_input = []
-        batch_files = []
-        test_size = len(self.dataset['files'])
-        times = []
-        for i, file in enumerate(self.dataset['files']):
-            start = time.time()
-            img = Image.open(file)
-            crop = ToTensor()(RandomCrop(224)(img))
-
-            batch_input.append(crop)
-            batch_files.append(file)
-
-            if (i+1) % batch_size == 0 or (i+1) == test_size:
-                batch_input = Variable(torch.stack(batch_input), volatile=True).cuda()
-                output = self.net(batch_input)
-
-                if self.multitask:
-                    predictions = output[0].max(1)[1].cpu().data.numpy().tolist()
-                    dbh_predictions = output[1].cpu().data.numpy().tolist()
-                    dbh_predictions = [item for sublist in dbh_predictions for item in sublist]
-                else:
-                    predictions = output.max(1)[1].cpu().data.numpy().tolist()
-                    dbh_predictions = np.zeros(batch_size)
-
-                for j, prediction in enumerate(predictions):
-                    file = batch_files[j]
-                    class_name = file.split('/')[-2]
-                    #self.write_results(class_name, file, pred=prediction, dbh=dbh_predictions[j])
-
-                batch_input = []
-                batch_files = []
-                end = time.time()
-                times.append(end - start)
-                print(sum(times) / len(times))
-
-    def _get_specific_predictions(self, output, specific_classes):
-        results = []
-        class_index = []
-        for class_name in specific_classes:
-            class_index.append(self.classes.index(class_name))
-
-        for i, crop in enumerate(output[0]):
-            results.append([])
-            for index in class_index:
-                results[i].append(crop[index].data[0])
-
-        preds =[]
-        for result in results:
-            preds.append(class_index[result.index(max(result))])
-
-        return max(set(preds), key=preds.count)
-
-    def _load_classes(self):
-        for file in self.dataset['files']:
-            class_name = file.split('/')[-2]
-            if class_name not in self.classes:
-                self.classes.append(class_name)
-
-    def _recursion_change_bn(module):
-        if isinstance(module, torch.nn.BatchNorm2d):
-            module.track_running_stats = 1
-        else:
-            for i, (name, module1) in enumerate(module._modules.items()):
-                module1 = recursion_change_bn(module1)
-        return module
-    
-    def _create_network(self):
-        # self.net = torch.load(os.path.join(self.log_path, self.model_path, self.model_name))
-        model = torch.load(self.model_path)
-
-        # for i, (name, module) in enumerate(model._modules.items()):
-        #   print(module)
-        #   module = self._recursion_change_bn(module)
-
-        self.net = model
-        self.net.cuda()
-        self.net.eval()
-
-    def _create_test_file(self, test_file_name):
-        self.test_file = open(self.log_path + self.model_path + '/{}'.format(test_file_name), 'w', 1)
-        for i, target in enumerate(self.classes):
-            self.test_file.write(target)
-            if i != len(self.classes):
-                self.test_file.write(', ')
-        self.test_file.write('\n')
-
-    @staticmethod
-    def split_crops(img):
-        crops = []
-        for i in range(img.size[1] // CROP_SIZE):
-            for j in range(img.size[0] // CROP_SIZE):
-                start_y = i * CROP_SIZE
-                start_x = j * CROP_SIZE
-
-                crop = img.crop((start_x, start_y, start_x + CROP_SIZE, start_y + CROP_SIZE))
-                crop = ToTensor()(crop)
-                crops.append(crop)
-
-        if len(crops) > 0:
-            return torch.stack(crops)
-        else:
-            return []
-
-    def get_class_predictions(self, output):
-        if self.multitask:
-            output = output[0]
-        predictions = output.max(1)[1]
-        predictions = predictions.cpu()
-
-        predictions = predictions.data.numpy()
-        flat_results = predictions.tolist()
-        pred = max(set(flat_results), key=flat_results.count)
-        return pred
-
-    @staticmethod
-    def get_dbh_predictions(output):
-        dbh = torch.mean(output[1])
-        dbh = dbh.data[0]
-        return dbh
-
-    def write_results(self, class_name, file_path, pred, dbh):
-        self.test_file.write(
-            '{}, {}, {}, {}\n'.format(file_path, self.classes.index(class_name),
-                                      pred, dbh))
-        print('{} - {}, {}'.format(self.classes.index(class_name), pred,
-                                   math.fabs(int(file_path.split('/')[-1].split('_')[2]) / math.pi - dbh)))
-
+    return dataset_gen
 
 if __name__ == '__main__':
-    model = str(0)
-    log_path = '/home/mathieu/Universite/Maitrise/bark_classifier/log/'
 
-    model_path = '../models/resnet34'
+    parser = argparse.ArgumentParser(description='Train the multitask network')
+    parser.add_argument('--config', nargs='?', help='Path of the config file', dest='config_path')
+    args = parser.parse_args()
 
-    # dataset_file = os.path.join(log_path, model_path, 'dataset')
-    # dataset_file = open(dataset_file)
-    # loaded_dataset = json.load(dataset_file)
-    # dataset_file.close()
+    config_args = load_config(args.config_path)
 
-    test = Test(model, model_path, log_path, dataset=[], multitask=False)
-    test.run(test_file_name='test_run')
+    dataset_generator = get_dataset_generator(config_args)
+
+    use_k_fold = int(config_args['K_FOLD']) > 1
+
+    if use_k_fold:
+        dataset = dataset_generator.get_k_fold_dataset(int(config_args['K_FOLD']))
+    else:
+        dataset = dataset_generator.all_dataset(train_size=float(config_args['TRAIN_SIZE']), tree_size=float(config_args['TREE_SIZE']))
+        dataset = {
+            0: dataset
+        }
+
+    main_name = args.config_path.split('/')[-1]
+
+    for i in range(int(config_args['K_FOLD'])):
+        model_name = str(i)
+        if config_args['USE_MULTITASK'] == 'TRUE':
+
+            trainer = MultitaskTrainer(lr=float(config_args['LR']),
+                                       batch_size=int(config_args['BATCH_SIZE']),
+                                       epoch_lr=[int(x) for x in config_args['EPOCH_LIST'].strip('[]').split(', ')],
+                                       lr_decay=float(config_args['LR_DECAY']),
+                                       weight_decay=float(config_args['WEIGHT_DECAY']),
+                                       n_classes=len(dataset_generator.classes),
+                                       pretrained=config_args['PRETRAINED'] == 'TRUE')
+
+        else:
+            trainer = ClassificationTrainer(lr=float(config_args['LR']),
+                                            batch_size=int(config_args['BATCH_SIZE']),
+                                            epoch_lr=[int(x) for x in config_args['EPOCH_LIST'].strip('[]').split(', ')],
+                                            lr_decay=float(config_args['LR_DECAY']),
+                                            weight_decay=float(config_args['WEIGHT_DECAY']),
+                                            n_classes=len(dataset_generator.classes),
+                                            pretrained=config_args['PRETRAINED'] == 'TRUE')
+
+        trainer.train(n_epoch=int(config_args['N_EPOCHS']), folder=dataset[i], model_name=config_args['MODEL'],
+                      print_info=config_args['PRINT'] == 'TRUE')
+
+        trainer.save_train_data(model_name,
+                                os.path.join(config_args['LOG_PATH'], main_name),
+                                args.config_path, dataset[i],
+                                save_graph=config_args['SAVE_GRAPH'] == 'TRUE')

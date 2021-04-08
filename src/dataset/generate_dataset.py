@@ -1,7 +1,7 @@
 import json
 import os
 import math
-from PIL import Image
+from utils.img_utils import ImageOpen
 import random
 
 class GenerateDataset:
@@ -43,7 +43,7 @@ class GenerateDataset:
 
                 file_path = os.path.join(self.path, class_name, file)
                 if not file.endswith('NAME.jpg'):
-                    img = Image.open(file_path)
+                    img = ImageOpen(file_path)
                     width, height = img.size
                     if width >= 224 and height >= 224:
                         files.append(file_path)
@@ -73,7 +73,7 @@ class GenerateDataset:
                     self.dataset[class_name].append(tree_number)
 
                 if not file.endswith('NAME.jpg'):
-                    img = Image.open(file_path)
+                    img = ImageOpen(file_path)
                     width, height = img.size
                     if width >= 224 and height >= 224:
                         self.trees[tree_number].append(file_path)

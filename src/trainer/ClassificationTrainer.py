@@ -15,7 +15,7 @@ class ClassificationTrainer(Trainer):
         self.criterion = nn.CrossEntropyLoss()
 
         self.net = Model(model_name, pretrained=self.pretrained, n_classes=self.dims[0])
-        self.net.cuda()
+        # self.net.cuda()
 
         self.freeze_layers(1)
 
@@ -42,7 +42,8 @@ class ClassificationTrainer(Trainer):
 
     def create_mini_batch(self, batch_loader):
         batch = next(batch_loader)[1]
-        return Variable(batch[0]).cuda(), Variable(batch[1].type(torch.LongTensor).cuda())
+        return Variable(batch[0]), Variable(batch[1].type(torch.LongTensor))
+        # return Variable(batch[0]).cuda(), Variable(batch[1].type(torch.LongTensor).cuda())
 
     def get_class_predictions(self, output, targets):
         return output.max(1)[1].type_as(targets)

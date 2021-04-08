@@ -26,7 +26,7 @@ class Model(nn.Module):
             self.model = models.densenet121(pretrained=pretrained)
             self.model.classifier = nn.Linear(1024, n_classes)
 
-        self.model.cuda()
+        # self.model.cuda()
 
     def forward(self, input):
         return self.model(input)

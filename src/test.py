@@ -33,24 +33,31 @@ class Test:
         self._create_network()
 
     def run(self, test_file_name):
+        print('running')
         self._create_test_file(test_file_name)
-        for file in self.dataset['files']:
-            class_name = file.split('/')[-2]
-            img = Image.open(file)
+        print('created test file')
+        for f in self.dataset['files']:
+            print('iteration')
+            class_name = f.split('/')[-2]
+            img = Image.open(f)
             crops = self.split_crops(img)
 
             if len(crops) > 0:
-                input = Variable(crops, volatile=True).cuda()
-                output = self.net(input)
+                print('has crops')
+                with torch.no_grad():
+                    inp = Variable(crops)
+                    # input = Variable(crops, volatile=True).cuda()
+                    # print(inp)
+                    output = self.net(inp)
+                    print('after output')
+                    pred = self.get_class_predictions(output)
+                    print('get prediction')
+                    if self.multitask:
+                        dbh = self.get_dbh_predictions(output)
+                    else:
+                        dbh = 0
 
-                pred = self.get_class_predictions(output)
-
-                if self.multitask:
-                    dbh = self.get_dbh_predictions(output)
-                else:
-                    dbh = 0
-
-                self.write_results(class_name, file, pred, dbh)
+                    self.write_results(class_name, f, pred, dbh)
 
     def run_single_crop(self, test_file_name, batch_size=32):
         self._create_test_file(test_file_name)
@@ -67,7 +74,8 @@ class Test:
             batch_files.append(file)
 
             if (i+1) % batch_size == 0 or (i+1) == test_size:
-                batch_input = Variable(torch.stack(batch_input), volatile=True).cuda()
+                batch_input = Variable(torch.stack(batch_input), volatile=True)
+                # batch_input = Variable(torch.stack(batch_input), volatile=True).cuda()
                 output = self.net(batch_input)
 
                 if self.multitask:
@@ -111,10 +119,14 @@ class Test:
             class_name = file.split('/')[-2]
             if class_name not in self.classes:
                 self.classes.append(class_name)
+        print(self.classes)
 
     def _create_network(self):
-        self.net = torch.load(os.path.join(self.log_path, self.model_path, self.model_name))
-        self.net.cuda()
+        name = os.path.join(self.log_path, self.model_path, self.model_name)
+        print(name)
+        self.net = torch.load(name)
+        # print(self.net)
+        # self.net.cuda()
         self.net.eval()
 
     def _create_test_file(self, test_file_name):
@@ -169,9 +181,9 @@ class Test:
 
 if __name__ == '__main__':
     model = str(0)
-    log_path = '/home/mathieu/Universite/Maitrise/bark_classifier/log/'
+    log_path = '../log/'
 
-    model_path = 'train_config' + '/' + model
+    model_path = 'config' + '/' + model
 
     dataset_file = os.path.join(log_path, model_path, 'dataset')
     dataset_file = open(dataset_file)

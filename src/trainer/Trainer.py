@@ -40,6 +40,7 @@ class Trainer:
             data_loader = enumerate(loader)
             epoch_loss = []
             epoch_acc = []
+
             for j in range(len(loader)):
                 batch_input, targets = self.create_mini_batch(data_loader)
 
@@ -99,8 +100,20 @@ class Trainer:
         self.history.save_data_to_file(model_name, log_path)
         torch.save(self.net, os.path.join(log_path, model_name, model_name))
         copyfile(config_path, log_path + '/' + model_name + '/{}.log'.format(model_name))
+
+
         with open(log_path + '/' + model_name + '/dataset', 'w') as file:
             file.write(json.dumps(dataset))
+
+        # write to drive
+        gdrive = '/content/gdrive/MyDrive/barknet/'
+        gdrive_dataset = gdrive + 'dataset'
+        gdrive_model = gdrive + model_name
+        
+        self.history.save_data_to_file('', gdrive)
+        torch.save(self.net, gdrive_model)
+        with open(gdrive_dataset, 'w') as drive_file:
+            drive_file.write(json.dumps(dataset))
 
     def create_model(self, model_name):
         raise NotImplementedError()

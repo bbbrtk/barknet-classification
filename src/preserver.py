@@ -7,15 +7,49 @@ import torchvision.transforms as transforms
 from PIL import Image
 # from flask import Flask, jsonify, request
 
-f = '../data/699_epo_1.jpg'
+
+species = {
+'BOJ': 'Betula alleghaniensis',
+'BOP': 'Betula papyrifera',
+'CHR': 'Quercus rubra',
+'EPB': 'Picea glauca',
+'EPN': 'Picea mariana',
+'EPO': 'Picea abies',
+'EPR': 'Picea rubens',
+'ERB': 'Acer platanoides',
+'ERR': 'Acer rubrum',
+'ERS': 'Acer saccharum',
+'FRA': 'Fraxinus americana',
+'HEG': 'Fagus grandifolia',
+'MEL': 'Larix laricina',
+'ORA': 'Ulmus americana',
+'OSV': 'Ostrya virginiana',
+'PEG': 'Populus grandidentata',
+'PET': 'Populus tremuloides',
+'PIB': 'Pinus strobus',
+'PID': 'Pinus rigida',
+'PIR': 'Pinus resinosa',
+'PRU': 'Tsuga canadensis',
+'SAB': 'Abies balsamea',
+'THO': 'Thuja occidentalis'
+}
+
+classes = [*species]
+
+
+
+
+
+f= '../data/169_EPO_69_Nexus 5_20170922_102428_7.jpg'
+# f = '../data/699_epo_1.jpg'
 # app = Flask(__name__)
 
 # params
-classes = ['CHR','EPB','EPO','EPR','ERB','EPN'] # my classes
-classes.sort()
+# classes = ['CHR','EPB','EPO','EPR','ERB','EPN'] # my classes
+# classes.sort()
 print(classes)
 
-PATH = './log/config/0/0'
+PATH = './log/config/0/resnet34'
 CROP_SIZE = 224
 
 def load_model(path):
@@ -81,7 +115,10 @@ def main():
             print('output', output)
 
             pred = get_class_predictions(output)
-            print(pred)
+            code = classes[pred]
+            print('pred:\t', pred)
+            print('code:\t', code)
+            print('name:\t', species[code])
 
 # @app.route('/predict', methods=['POST'])
 # def predict():

@@ -70,9 +70,11 @@ if __name__ == '__main__':
                                             pretrained=config_args['PRETRAINED'] == 'TRUE')
 
         trainer.train(n_epoch=int(config_args['N_EPOCHS']), folder=dataset[i], model_name=config_args['MODEL'],
-                      print_info=config_args['PRINT'] == 'TRUE')
+                      print_info=config_args['PRINT'] == 'TRUE', log_path=os.path.join(config_args['LOG_PATH'], main_name),
+                      config_path=args.config_path)
 
         trainer.save_train_data(model_name,
                                 os.path.join(config_args['LOG_PATH'], main_name),
-                                args.config_path, dataset[i],
+                                args.config_path, 
+                                dataset[i],
                                 save_graph=config_args['SAVE_GRAPH'] == 'TRUE')

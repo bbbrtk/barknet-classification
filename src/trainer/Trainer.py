@@ -28,13 +28,14 @@ class Trainer:
         self.criterion = None
         self.optimizer = None
 
-    def train(self, n_epoch, folder, model_name, print_info=True):
+    def train(self, n_epoch, folder, model_name, print_info=True, log_path='log/', config_path='./config'):
         loader = self.get_loader(folder)
 
         self.create_model(model_name)
 
         current_lr = self.start_lr
         for i in range(n_epoch):
+            print('EPOCH:',i)
             start_time = time()
             data_loader = enumerate(loader)
             epoch_loss = []
@@ -59,6 +60,9 @@ class Trainer:
             end_time = time()
             self.update_epoch_info(i, n_epoch, current_lr, epoch_loss, epoch_acc, end_time - start_time, print_info=print_info)
             current_lr = self.update_lr(i, current_lr)
+            print('saving...')
+            self.save_train_data(model_name, log_path, config_path, folder, save_graph=True)
+            print('model saved')
 
     def update_iteration_info(self, batch_input, output, targets, epoch_acc, loader, loss, j, print_info=True):
         raise NotImplementedError()
